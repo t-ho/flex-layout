@@ -21,6 +21,7 @@ import {MatchMedia} from '../../media-query/match-media';
 import {MediaMonitor} from '../../media-query/media-monitor';
 import {ResponsiveActivation, KeyOptions} from './responsive-activation';
 import {MediaQuerySubscriber, MediaChange} from '../../media-query/media-change';
+import {MockMediaMonitor} from '../../media-query/mock/mock-media-monitor';
 
 describe('responsive-activation', () => {
   let monitor: MediaMonitor;
@@ -45,10 +46,10 @@ describe('responsive-activation', () => {
     // Configure testbed to prepare services
     TestBed.configureTestingModule({
       providers: [
-        MediaMonitor,
         BreakPointRegistry,           // Registry of known/used BreakPoint(s)
         BreakPointsProvider,          // Supports developer overrides of list of known breakpoints
-        {provide: MatchMedia, useClass: MockMatchMedia}
+        {provide: MatchMedia, useClass: MockMatchMedia},
+        {provide: MediaMonitor, useClass: MockMediaMonitor}
       ]
     });
   });

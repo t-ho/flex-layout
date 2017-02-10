@@ -14,11 +14,13 @@ import {TestBed, inject, async} from '@angular/core/testing';
 
 import {RAW_DEFAULTS} from './breakpoints/break-points';
 import {MediaChange} from './media-change';
-import {MockMatchMedia} from './mock/mock-match-media';
 import {BreakPointsProvider} from './breakpoints/break-points';
 import {BreakPointRegistry} from './breakpoints/break-point-registry';
 import {MatchMedia} from './match-media';
 import {MediaMonitor} from './media-monitor';
+
+import {MockMatchMedia} from './mock/mock-match-media';
+import {MockMediaMonitor} from './mock/mock-media-monitor';
 
 describe('media-monitor', () => {
   let monitor: MediaMonitor;
@@ -30,10 +32,10 @@ describe('media-monitor', () => {
     // Configure testbed to prepare services
     TestBed.configureTestingModule({
       providers: [
-        MediaMonitor,
         BreakPointRegistry,           // Registry of known/used BreakPoint(s)
         BreakPointsProvider,          // Supports developer overrides of list of known breakpoints
-        {provide: MatchMedia, useClass: MockMatchMedia}
+        { provide: MatchMedia, useClass: MockMatchMedia },
+        { provide: MediaMonitor, useClass: MockMediaMonitor }
       ]
     });
   });
@@ -69,15 +71,17 @@ describe('media-monitor', () => {
 
   it('can observe specific mediaQuery activations', () => {
     let current: MediaChange;
-    let queryXs = findQuery('xs'), queryGtMd = findQuery('gt-md');
-    let subscription = monitor.observe(queryGtMd)
-        .subscribe((change: MediaChange) => {
-          current = change;
-        });
+    let queryXs = findQuery('xs');
+    let queryGtMd = findQuery('gt-md');
+    let subscription = monitor
+          .observe(queryGtMd)
+          .subscribe(change => current = change );
+
     try {
       expect(current).toBeUndefined();
 
       matchMedia.activate(queryGtMd);
+
       expect(current.mediaQuery).toBe(queryGtMd);
       expect(current.matches).toBeTruthy();
 
@@ -94,7 +98,7 @@ describe('media-monitor', () => {
         queryXs = findQuery('xs'), queryGtMd = findQuery('gt-md'),
         subscription = monitor.observe(queryGtMd)
             .subscribe((change: MediaChange) => {
-              if (change && !change.matches) {
+              if (!change.matches) {
                 ++deactivationCount;
               }
             });
@@ -107,7 +111,8 @@ describe('media-monitor', () => {
       matchMedia.activate(queryXs);
       expect(deactivationCount).toEqual(1);
 
-      // Next, we do not expect deactivation for queryXs
+      // Since we only observer GtMd, we do not expect
+      // a deactivation for queryXs
       matchMedia.activate(queryGtMd);
       expect(deactivationCount).toEqual(1);
     } finally {
@@ -123,7 +128,7 @@ describe('media-monitor', () => {
               current = change;
             });
     try {
-      expect(current.mediaQuery).toEqual("all");
+      expect(current.mediaQuery).toBe("all");
 
       matchMedia.activate(queryGtMd);
       expect(current.mediaQuery).toBe(queryGtMd);
@@ -149,7 +154,6 @@ describe('media-monitor', () => {
     try {
       expect(deactivationCount).toEqual(0);
 
-      // Now the mediaQuery 'all' will always stay matched.
       matchMedia.activate(queryGtMd);
       expect(deactivationCount).toEqual(0);
 

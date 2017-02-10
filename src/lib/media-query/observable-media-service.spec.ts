@@ -17,6 +17,7 @@ import {BreakPointRegistry} from './breakpoints/break-point-registry';
 import {MediaChange} from './media-change';
 import {MockMatchMedia} from './mock/mock-match-media';
 import {MatchMedia} from './match-media';
+import {ChangeQueue} from './change-queue';
 import {ObservableMedia, MediaService} from './observable-media-service';
 import {BREAKPOINTS, RAW_DEFAULTS} from './breakpoints/break-points';
 
@@ -39,8 +40,8 @@ describe('match-media-observable-provider', () => {
         {provide: MatchMedia, useClass: MockMatchMedia},
         {
           provide: ObservableMedia,
-          useClass: MediaService,
-          deps: [MatchMedia, BreakPointRegistry]
+          deps: [MatchMedia, BreakPointRegistry],
+          useClass: MediaService
         }
       ]
     });

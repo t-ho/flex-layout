@@ -5,8 +5,8 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {Injectable, NgZone} from '@angular/core';
-import {MatchMedia} from '../match-media';
+import {Injectable} from '@angular/core';
+import {MatchMedia, OnMediaChange} from '../match-media';
 import {BreakPointRegistry} from '../breakpoints/break-point-registry';
 
 /**
@@ -16,14 +16,19 @@ import {BreakPointRegistry} from '../breakpoints/break-point-registry';
  */
 @Injectable()
 export class MockMatchMedia extends MatchMedia {
+  /**
+   * Global callback used internally within
+   * ::registerQuery()
+   */
+  public onChange: OnMediaChange = () => { };
 
   /**
    * Special flag used to test BreakPoint registrations with MatchMedia
    */
   public autoRegisterQueries = true;
 
-  constructor(_zone: NgZone, private _breakpoints: BreakPointRegistry) {
-    super(_zone);
+  constructor(private _breakpoints: BreakPointRegistry) {
+    super();
     this._actives = [];
   }
 
@@ -35,6 +40,7 @@ export class MockMatchMedia extends MatchMedia {
       mql.destroy();
     });
     this._registry.clear();
+    this.onChange = (() => { });
   }
 
   /**
@@ -136,9 +142,9 @@ export class MockMatchMedia extends MatchMedia {
   /**
    * Insure the mediaQuery is registered with MatchMedia
    */
-  private _registerMediaQuery(mediaQuery) {
+  private _registerMediaQuery(mediaQuery: string) {
     if (!this._registry.has(mediaQuery) && this.autoRegisterQueries) {
-      this.registerQuery(mediaQuery);
+      this.registerQuery(mediaQuery, this.onChange);
     }
   }
 

@@ -6,15 +6,20 @@
  * found in the LICENSE file at https://angular.io/license
  */
 import {Injectable} from '@angular/core';
-import {Observable} from 'rxjs/Observable';
-import 'rxjs/add/operator/map';
 
+import {Observable} from 'rxjs/Observable';
+import {BehaviorSubject} from 'rxjs/BehaviorSubject';
+
+// RxJS Operators used by the classes...
+import 'rxjs/add/operator/map';
+import 'rxjs/add/operator/filter';
+
+import {ChangeQueue} from './change-queue';
 import {BreakPoint} from './breakpoints/break-point';
 import {BreakPointRegistry} from './breakpoints/break-point-registry';
 import {MatchMedia} from './match-media';
 import {MediaChange} from './media-change';
 import {mergeAlias} from '../utils/add-alias';
-
 
 /**
  * MediaMonitor uses the MatchMedia service to observe mediaQuery changes (both activations and
@@ -31,9 +36,6 @@ import {mergeAlias} from '../utils/add-alias';
  */
 @Injectable()
 export class MediaMonitor {
-  constructor(private _breakpoints: BreakPointRegistry, private _matchMedia: MatchMedia) {
-    this._registerBreakpoints();
-  }
 
   /**
    * Read-only accessor to the list of breakpoints configured in the BreakPointRegistry provider
@@ -72,27 +74,60 @@ export class MediaMonitor {
   }
 
   /**
+   * Constructor
+   */
+  constructor(private _breakpoints: BreakPointRegistry,
+              private _matchMedia: MatchMedia) {
+    this._source = new BehaviorSubject<MediaChange>(new MediaChange(true));
+    this._observable$ = this._source.asObservable();
+    this._asyncQueue = new ChangeQueue(this._next.bind(this), this._breakpoints.items);
+
+    this._registerBreakpoints();
+  }
+
+  /**
    * External observers can watch for all (or a specific) mql changes.
    * If specific breakpoint is observed, only return *activated* events
    * otherwise return all events for BOTH activated + deactivated changes.
+   *
+   * Note: the raw MediaChange events [from MatchMedia] do not contain
+   *       important alias information
    */
   observe(alias?: string): Observable<MediaChange> {
     let bp = this._breakpoints.findByAlias(alias) || this._breakpoints.findByQuery(alias);
-    let hasAlias = (change: MediaChange) => (bp ? change.mqAlias !== "" : true);
-    // Note: the raw MediaChange events [from MatchMedia] do not contain important alias information
-    return this._matchMedia
-        .observe(bp ? bp.mediaQuery : alias)
-        .map(change => mergeAlias(change, bp))
-        .filter(hasAlias);
+    let mediaQuery = bp ? bp.mediaQuery : alias;
+
+    return this._observable$
+        .filter(change => alias ? change.mediaQuery === mediaQuery : true)
+        .map(change => mergeAlias(change, bp));
   }
 
   /**
    * Immediate calls to matchMedia() to establish listeners
    * and prepare for immediate subscription notifications
    */
-  private _registerBreakpoints() {
+  protected _registerBreakpoints() {
+    let onChange = this._asyncQueue.onMediaChange.bind(this._asyncQueue);
     this._breakpoints.items.forEach(bp => {
-      this._matchMedia.registerQuery(bp.mediaQuery);
+      this._matchMedia.registerQuery(bp.mediaQuery, onChange);
     });
   }
+
+  /**
+   * Proxy to emit change messages
+   */
+  protected _next(change: MediaChange): void {
+    if (change) {
+      this._source.next(change);
+    }
+  }
+
+  /**
+   * Prioritized async queue that manages mediaQuery activations
+   * in proper order.
+   */
+  protected _asyncQueue : ChangeQueue;
+  protected _source: BehaviorSubject<MediaChange>;
+  protected _observable$: Observable<MediaChange>;
 }
+

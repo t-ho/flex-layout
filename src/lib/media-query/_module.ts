@@ -12,6 +12,7 @@ import {MediaMonitor} from './media-monitor';
 import {ObservableMediaProvider} from './observable-media-service';
 import {BreakPointsProvider} from './breakpoints/break-points';
 import {BreakPointRegistry} from './breakpoints/break-point-registry';
+import {ChangeQueue} from './change-queue';
 
 /**
  * *****************************************************************

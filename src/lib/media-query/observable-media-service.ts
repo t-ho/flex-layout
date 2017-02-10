@@ -9,6 +9,7 @@ import {Injectable} from '@angular/core';
 
 import {Subscription} from 'rxjs/Subscription';
 import {Observable, Subscribable} from "rxjs/Observable";
+import {BehaviorSubject} from 'rxjs/BehaviorSubject';
 import 'rxjs/add/operator/map';
 import 'rxjs/add/operator/filter';
 
@@ -18,6 +19,7 @@ import {MediaChange} from './media-change';
 import {MatchMedia} from './match-media';
 import {mergeAlias} from './../utils/add-alias';
 import {BreakPoint} from './breakpoints/break-point';
+import {ChangeQueue} from './change-queue';
 
 /**
  * Base class for MediaService and pseudo-token for
@@ -74,12 +76,17 @@ export abstract class ObservableMedia implements Subscribable<MediaChange> {
  */
 @Injectable()
 export class MediaService implements ObservableMedia {
-  private observable$: Observable<MediaChange>;
+  protected observable$: Observable<MediaChange>;
+  protected source: BehaviorSubject<MediaChange>;
 
   constructor(private mediaWatcher: MatchMedia,
               private breakpoints: BreakPointRegistry) {
-    this._registerBreakPoints();
+
+    this._asyncQueue = new ChangeQueue(this._next.bind(this), breakpoints.items);
+    this.source = new BehaviorSubject<MediaChange>(new MediaChange(true));
     this.observable$ = this._buildObservable();
+
+    this._registerBreakPoints();
   }
 
   /**
@@ -111,14 +118,22 @@ export class MediaService implements ObservableMedia {
   // Internal Methods
   // ************************************************
 
+  private _next(change:MediaChange) {
+    if ( change ) {
+      this.source.next(change);
+    }
+  }
+
   /**
    * Register all the mediaQueries registered in the BreakPointRegistry
    * This is needed so subscribers can be auto-notified of all standard, registered
    * mediaQuery activations
    */
   private _registerBreakPoints() {
+    const onChange = this._asyncQueue.onMediaChange.bind(this._asyncQueue);
+
     this.breakpoints.items.forEach((bp: BreakPoint) => {
-      this.mediaWatcher.registerQuery(bp.mediaQuery);
+      this.mediaWatcher.registerQuery(bp.mediaQuery, onChange);
       return bp;
     });
   }
@@ -129,15 +144,15 @@ export class MediaService implements ObservableMedia {
    * these must be injected into the MediaChange
    */
   private _buildObservable() {
-    return this.mediaWatcher.observe()
-        .filter((change: MediaChange) => {
-          // Only pass/announce activations (not de-activations)
-          return change.matches === true;
-        })
-        .map((change: MediaChange) => {
-          // Inject associated (if any) alias information into the MediaChange event
-          return mergeAlias(change, this._findByQuery(change.mediaQuery));
-        });
+    let addAliasInfo = change => mergeAlias(change, this._findByQuery(change.mediaQuery));
+
+    // Only pass/announce activations (not de-activations)
+    // Inject associated (if any) alias information into the MediaChange event
+
+    return this.source
+        .asObservable()
+        .filter(change => change.matches === true )
+        .map(addAliasInfo);
   }
 
   /**
@@ -162,6 +177,11 @@ export class MediaService implements ObservableMedia {
     return bp ? bp.mediaQuery : query;
   };
 
+  /**
+   * Prioritized async queue that manages mediaQuery activations
+   * in proper order.
+   */
+  private _asyncQueue : ChangeQueue;
 }
 
 /**
