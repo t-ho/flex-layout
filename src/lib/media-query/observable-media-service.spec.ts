@@ -18,12 +18,13 @@ import {MediaChange} from './media-change';
 import {MockMatchMedia} from './mock/mock-match-media';
 import {MatchMedia} from './match-media';
 import {ObservableMedia, MediaService} from './observable-media-service';
-import {BREAKPOINTS, RAW_DEFAULTS} from './breakpoints/break-points';
+import {BREAKPOINTS} from './breakpoints/break-points-provider';
+import {DEFAULT_BREAKPOINTS} from './breakpoints/data/break-points';
 
 describe('match-media-observable-provider', () => {
   let findMediaQuery = (alias) => {
     let mediaQuery;
-    RAW_DEFAULTS.forEach(bp => {
+    DEFAULT_BREAKPOINTS.forEach(bp => {
       if (bp.alias === alias) {
         mediaQuery = bp.mediaQuery;
       }
@@ -35,7 +36,7 @@ describe('match-media-observable-provider', () => {
     TestBed.configureTestingModule({
       providers: [
         BreakPointRegistry,   // Registry of known/used BreakPoint(s)
-        {provide: BREAKPOINTS, useValue: RAW_DEFAULTS},
+        {provide: BREAKPOINTS, useValue: DEFAULT_BREAKPOINTS},
         {provide: MatchMedia, useClass: MockMatchMedia},
         {
           provide: ObservableMedia,
